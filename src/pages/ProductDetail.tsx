@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
+import { ReviewForm } from "@/components/ReviewForm";
+import { ReviewsList } from "@/components/ReviewsList";
 
 interface Product {
   id: string;
@@ -30,6 +32,7 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [user, setUser] = useState(null);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -75,7 +78,7 @@ export default function ProductDetail() {
       .eq("product_id", id)
       .eq("color", selectedColor)
       .eq("size", selectedSize)
-      .single();
+      .maybeSingle();
 
     if (existingItem) {
       const { error } = await supabase
@@ -91,11 +94,12 @@ export default function ProductDetail() {
       const { error } = await supabase
         .from("cart_items")
         .insert([{
+          user_id: user.id,
           product_id: id,
           quantity,
           color: selectedColor,
           size: selectedSize,
-        } as any]);
+        }]);
 
       if (error) {
         toast.error("Failed to add to cart");
@@ -126,7 +130,7 @@ export default function ProductDetail() {
             <img
               src={product.image_url || "/placeholder.svg"}
               alt={product.name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
 
@@ -224,6 +228,20 @@ export default function ProductDetail() {
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="mt-12">
+          <Card>
+            <CardContent className="p-6 space-y-6">
+              <h2 className="text-2xl font-bold">Customer Reviews</h2>
+              <ReviewsList productId={id!} refreshTrigger={reviewRefresh} />
+              <ReviewForm 
+                productId={id!} 
+                onReviewSubmitted={() => setReviewRefresh(prev => prev + 1)} 
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

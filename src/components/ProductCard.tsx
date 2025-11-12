@@ -19,7 +19,7 @@ export const ProductCard = ({ id, name, price, image_url, category }: ProductCar
             <img
               src={image_url || "/placeholder.svg"}
               alt={name}
-              className="h-full w-full object-cover transition-transform hover:scale-105"
+              className="h-full w-full object-contain transition-transform hover:scale-105"
             />
           </div>
         </CardContent>
