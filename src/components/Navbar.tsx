@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ShoppingCart, User, Search } from "lucide-react";
+import { ShoppingCart, User, Search, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
@@ -64,6 +64,11 @@ export const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" size="icon" title="Home">
+                <Home className="h-5 w-5" />
+              </Button>
+            </Link>
             <Link to="/custom-design">
               <Button variant="ghost">Custom Design</Button>
             </Link>

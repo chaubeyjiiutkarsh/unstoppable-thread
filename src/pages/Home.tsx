@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductCard } from "@/components/ProductCard";
 import { Navbar } from "@/components/Navbar";
+import { AISuggestions } from "@/components/AISuggestions";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -75,6 +76,13 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* AI Suggestions Section */}
+      <section className="container mx-auto px-4 py-16 bg-muted/50">
+        <div className="max-w-4xl mx-auto">
+          <AISuggestions />
+        </div>
+      </section>
 
       {/* All Products */}
       <section id="products" className="container mx-auto px-4 py-16">

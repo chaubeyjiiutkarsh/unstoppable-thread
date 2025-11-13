@@ -33,20 +33,30 @@ export default function CustomDesign() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error("Please login to submit custom design request");
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
       const { error } = await supabase
         .from("custom_design_requests")
         .insert([{
+          user_id: user.id,
           description,
           requirements,
           status: "pending",
         } as any]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Design request error:", error);
+        throw new Error("Failed to submit design request");
+      }
 
-      toast.success("Custom design request submitted successfully! We'll contact you soon.");
+      toast.success("Design request submitted successfully! Our designer will contact you soon at your registered phone number.");
       setDescription("");
       setRequirements({
         clothingType: "",
@@ -70,7 +80,7 @@ export default function CustomDesign() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold mb-4">Custom Design Request</h1>
           <p className="text-muted-foreground mb-8">
-            Tell us about your specific needs and we'll create a custom design just for you.
+            Tell us about your specific needs and we'll create a custom design just for you. Our designer will contact you at your registered phone number to discuss details.
           </p>
 
           <Card>

@@ -61,6 +61,12 @@ export default function Checkout() {
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error("Please login to place order");
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -68,6 +74,7 @@ export default function Checkout() {
       const { data: addressData, error: addressError } = await supabase
         .from("addresses")
         .insert([{
+          user_id: user.id,
           full_name: fullName,
           phone,
           address_line1: addressLine1,
@@ -80,12 +87,16 @@ export default function Checkout() {
         .select()
         .single();
 
-      if (addressError) throw addressError;
+      if (addressError) {
+        console.error("Address error:", addressError);
+        throw new Error("Failed to save address");
+      }
 
       // Create order
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert([{
+          user_id: user.id,
           address_id: addressData.id,
           total_amount: totalAmount,
           status: "pending",
@@ -93,7 +104,10 @@ export default function Checkout() {
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error("Order error:", orderError);
+        throw new Error("Failed to create order");
+      }
 
       // Create order items
       const orderItems = cartItems.map(item => ({
