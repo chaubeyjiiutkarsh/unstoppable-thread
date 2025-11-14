@@ -4,87 +4,131 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
+type AuthStep = "email" | "otp" | "password";
 
 export default function Auth() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [authStep, setAuthStep] = useState<AuthStep>("email");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
 
-  // Login state
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-
-  // Signup state
-  const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: true,
+        }
       });
 
       if (error) throw error;
 
-      toast.success("Logged in successfully!");
-      navigate("/");
+      toast.success("OTP sent to your email!");
+      setAuthStep("otp");
     } catch (error: any) {
-      toast.error(error.message || "Failed to login");
+      toast.error(error.message || "Failed to send OTP");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { data, error } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: signupName,
-          }
-        }
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email,
+        token: otp,
+        type: 'email'
       });
 
       if (error) throw error;
 
-      // Create profile
       if (data.user) {
+        // Check if user already has a profile (existing user)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.user.id)
+          .single();
+
+        if (profile) {
+          // Existing user - log them in
+          toast.success("Logged in successfully!");
+          navigate("/");
+        } else {
+          // New user - ask for password
+          toast.success("OTP verified! Please set your password.");
+          setAuthStep("password");
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to verify OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Update user password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password,
+        data: {
+          full_name: fullName,
+        }
+      });
+
+      if (updateError) throw updateError;
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Create profile
         const { error: profileError } = await supabase
           .from("profiles")
           .insert({
-            id: data.user.id,
-            full_name: signupName,
-            email: signupEmail,
+            id: user.id,
+            full_name: fullName,
+            email: email,
           });
 
-        if (profileError) {
+        if (profileError && profileError.code !== '23505') { // Ignore duplicate key error
           console.error("Profile creation error:", profileError);
         }
       }
 
-      toast.success("Account created successfully! You can now login.");
-      // Switch to login tab
-      const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-      loginTab?.click();
+      toast.success("Account created successfully!");
+      navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Failed to create account");
+      toast.error(error.message || "Failed to set password");
     } finally {
       setIsLoading(false);
     }
@@ -100,92 +144,103 @@ export default function Auth() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
+          {authStep === "email" && (
+            <form onSubmit={handleSendOTP} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email or Mobile</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Sending..." : "Send OTP"}
+              </Button>
+            </form>
+          )}
 
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                  />
+          {authStep === "otp" && (
+            <form onSubmit={handleVerifyOTP} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp">Enter OTP</Label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  We sent a verification code to {email}
+                </p>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={(value) => setOtp(value)}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  />
-                  <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
-                    Remember me
-                  </Label>
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-              </form>
-            </TabsContent>
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading || otp.length !== 6}>
+                {isLoading ? "Verifying..." : "Verify OTP"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setAuthStep("email")}
+              >
+                Back
+              </Button>
+            </form>
+          )}
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating account..." : "Sign Up"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+          {authStep === "password" && (
+            <form onSubmit={handleSetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Your full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Set Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Creating Account..." : "Create Account"}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
