@@ -28,7 +28,8 @@ Recommend clothing that considers:
 
 Provide 3-5 specific product recommendations with reasons.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Get text suggestions
+    const textResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -43,20 +44,45 @@ Provide 3-5 specific product recommendations with reasons.`;
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+    if (!textResponse.ok) {
+      const errorText = await textResponse.text();
+      console.error("AI Gateway error:", textResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: "Failed to get AI suggestions" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const data = await response.json();
-    const suggestions = data.choices[0].message.content;
+    const textData = await textResponse.json();
+    const suggestions = textData.choices[0].message.content;
+
+    // Generate image based on suggestions
+    const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: `Generate an image of adaptive clothing for specially-abled individuals based on these preferences: ${userPreferences}. Show clothing with magnetic closures, elastic waistbands, and easy-wear features. Professional product photography style.`
+          }
+        ],
+        modalities: ["image", "text"]
+      }),
+    });
+
+    let imageUrl = "";
+    if (imageResponse.ok) {
+      const imageData = await imageResponse.json();
+      imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url || "";
+    }
 
     return new Response(
-      JSON.stringify({ suggestions }),
+      JSON.stringify({ suggestions, image: imageUrl }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

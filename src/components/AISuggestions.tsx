@@ -8,6 +8,7 @@ import { toast } from "sonner";
 export const AISuggestions = () => {
   const [preferences, setPreferences] = useState("");
   const [suggestions, setSuggestions] = useState("");
+  const [suggestionImage, setSuggestionImage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGetSuggestions = async () => {
@@ -36,6 +37,7 @@ export const AISuggestions = () => {
 
       const data = await response.json();
       setSuggestions(data.suggestions);
+      setSuggestionImage(data.image || "");
       toast.success("AI suggestions generated!");
     } catch (error) {
       console.error("Error getting AI suggestions:", error);
@@ -83,9 +85,20 @@ export const AISuggestions = () => {
         </Button>
 
         {suggestions && (
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h3 className="font-semibold mb-2">AI Recommendations:</h3>
-            <div className="whitespace-pre-wrap text-sm">{suggestions}</div>
+          <div className="mt-6 space-y-4">
+            {suggestionImage && (
+              <div className="rounded-lg overflow-hidden">
+                <img
+                  src={suggestionImage}
+                  alt="AI Suggested Clothing"
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+            )}
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold mb-2">AI Recommendations:</h3>
+              <div className="whitespace-pre-wrap text-sm">{suggestions}</div>
+            </div>
           </div>
         )}
       </CardContent>
