@@ -10,6 +10,7 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import CustomDesign from "./pages/CustomDesign";
 import SeedLookup from "./pages/SeedLookup";
+import SizeGuide from "./pages/SizeGuide";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/custom-design" element={<CustomDesign />} />
           <Route path="/seed-lookup" element={<SeedLookup />} />
+          <Route path="/size-guide" element={<SizeGuide />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
