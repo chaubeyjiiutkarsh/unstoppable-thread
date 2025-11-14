@@ -75,6 +75,9 @@ export const Navbar = () => {
             <Link to="/seed-lookup">
               <Button variant="ghost">Seed Info</Button>
             </Link>
+            <Link to="/size-guide">
+              <Button variant="ghost">Size Guide</Button>
+            </Link>
             
             {user ? (
               <>
