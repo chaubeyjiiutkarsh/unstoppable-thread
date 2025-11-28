@@ -231,19 +231,29 @@ export default function Auth() {
                 <form onSubmit={handleSendOTP} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+1234567890"
-                      value={contact}
-                      onChange={(e) => setContact(e.target.value)}
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <div className="flex items-center justify-center px-3 border border-input rounded-md bg-muted text-sm font-medium">
+                        +91
+                      </div>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="9876543210"
+                        value={contact.replace('+91', '')}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setContact('+91' + value);
+                        }}
+                        required
+                        maxLength={10}
+                        className="flex-1"
+                      />
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Include country code (e.g., +1 for US)
+                      Enter 10-digit Indian mobile number
                     </p>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full" disabled={isLoading || contact.length !== 13}>
                     {isLoading ? "Sending..." : "Send OTP Code"}
                   </Button>
                 </form>
