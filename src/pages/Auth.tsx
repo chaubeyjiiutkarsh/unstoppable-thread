@@ -202,7 +202,10 @@ export default function Auth() {
         </CardHeader>
         <CardContent>
           {authStep === "contact" && (
-            <Tabs value={authType} onValueChange={(value) => setAuthType(value as AuthType)} className="w-full">
+            <Tabs value={authType} onValueChange={(value) => {
+              setAuthType(value as AuthType);
+              setContact(""); // Reset contact when switching tabs
+            }} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="email">Email</TabsTrigger>
                 <TabsTrigger value="phone">Phone</TabsTrigger>
