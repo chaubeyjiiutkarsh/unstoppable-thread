@@ -102,10 +102,35 @@ export const Navbar = () => {
 
                   {/* Dropdown */}
                   <div
-                    className={`absolute right-0 mt-2 w-32 bg-white border rounded-lg shadow-md
+                    className={`absolute right-0 mt-2 w-64 bg-white border rounded-xl shadow-lg
                     transition-all duration-200 origin-top-right
                     ${open ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"}`}
                   >
+                    {/* User info */}
+                    <div className="flex items-center gap-3 p-4 border-b">
+                      {user?.picture ? (
+                        <img
+                          src={user.picture}
+                          alt="profile"
+                          className="w-10 h-10 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
+                          {getInitials(user?.name, user?.email)}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">
+                          {user?.name || "User"}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Logout */}
                     <button
                       onClick={() =>
                         logout({
@@ -114,7 +139,7 @@ export const Navbar = () => {
                           },
                         })
                       }
-                      className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-gray-100"
+                      className="flex items-center gap-2 w-full px-4 py-3 text-sm hover:bg-gray-100 rounded-b-xl"
                     >
                       <LogOut size={16} />
                       Logout
