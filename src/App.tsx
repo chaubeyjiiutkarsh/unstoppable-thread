@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { useSyncUser } from "@/hooks/useSyncUser"; // 👈 NEW
+import { useSyncUser } from "@/hooks/useSyncUser";
 
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
@@ -20,9 +20,47 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  useSyncUser(); // 🔥 Auth0 user → Supabase public.users sync
+/* 🔥 This component runs INSIDE Auth0Provider */
+const AppRoutes = () => {
+  useSyncUser(); // ✅ SAFE here
 
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/custom-design" element={<CustomDesign />} />
+        <Route path="/seed-lookup" element={<SeedLookup />} />
+        <Route path="/size-guide" element={<SizeGuide />} />
+
+        {/* Protected routes */}
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Fallback */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+const App = () => {
   return (
     <Auth0Provider
       domain={import.meta.env.VITE_AUTH0_DOMAIN}
@@ -36,38 +74,7 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
-              <Route path="/custom-design" element={<CustomDesign />} />
-              <Route path="/seed-lookup" element={<SeedLookup />} />
-              <Route path="/size-guide" element={<SizeGuide />} />
-
-              {/* Protected routes */}
-              <Route
-                path="/cart"
-                element={
-                  <ProtectedRoute>
-                    <Cart />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/checkout"
-                element={
-                  <ProtectedRoute>
-                    <Checkout />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Fallback */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <AppRoutes />
         </TooltipProvider>
       </QueryClientProvider>
     </Auth0Provider>
