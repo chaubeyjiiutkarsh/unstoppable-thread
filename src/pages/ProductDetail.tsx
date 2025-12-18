@@ -5,11 +5,18 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { ReviewForm } from "@/components/ReviewForm";
 import { ReviewsList } from "@/components/ReviewsList";
+import { useAuth0 } from "@auth0/auth0-react";
 
 interface Product {
   id: string;
@@ -27,23 +34,16 @@ interface Product {
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated, loginWithRedirect } = useAuth0();
+
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [user, setUser] = useState(null);
   const [reviewRefresh, setReviewRefresh] = useState(0);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (id) {
-      fetchProduct();
-    }
+    if (id) fetchProduct();
   }, [id]);
 
   const fetchProduct = async () => {
@@ -61,9 +61,9 @@ export default function ProductDetail() {
   };
 
   const handleAddToCart = async () => {
-    if (!user) {
+    if (!isAuthenticated || !user) {
       toast.error("Please login to add items to cart");
-      navigate("/auth");
+      loginWithRedirect();
       return;
     }
 
@@ -81,30 +81,18 @@ export default function ProductDetail() {
       .maybeSingle();
 
     if (existingItem) {
-      const { error } = await supabase
+      await supabase
         .from("cart_items")
         .update({ quantity: existingItem.quantity + quantity })
         .eq("id", existingItem.id);
-
-      if (error) {
-        toast.error("Failed to update cart");
-        return;
-      }
     } else {
-      const { error } = await supabase
-        .from("cart_items")
-        .insert([{
-          user_id: user.id,
-          product_id: id,
-          quantity,
-          color: selectedColor,
-          size: selectedSize,
-        }]);
-
-      if (error) {
-        toast.error("Failed to add to cart");
-        return;
-      }
+      await supabase.from("cart_items").insert({
+        user_id: user.sub, // 🔥 Auth0 user id
+        product_id: id,
+        quantity,
+        color: selectedColor,
+        size: selectedSize,
+      });
     }
 
     toast.success("Added to cart!");
@@ -115,17 +103,14 @@ export default function ProductDetail() {
     navigate("/cart");
   };
 
-  if (!product) {
-    return <div>Loading...</div>;
-  }
+  if (!product) return <div>Loading...</div>;
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Product Image */}
           <div className="aspect-square overflow-hidden rounded-lg bg-muted">
             <img
               src={product.image_url || "/placeholder.svg"}
@@ -134,33 +119,19 @@ export default function ProductDetail() {
             />
           </div>
 
-          {/* Product Info */}
           <div className="space-y-6">
             <div>
-              <p className="text-sm text-muted-foreground uppercase">{product.category}</p>
+              <p className="text-sm text-muted-foreground uppercase">
+                {product.category}
+              </p>
               <h1 className="text-4xl font-bold mt-2">{product.name}</h1>
               <p className="text-3xl font-bold text-primary mt-4">
-                ₹{product.price.toLocaleString('en-IN')}
+                ₹{product.price.toLocaleString("en-IN")}
               </p>
             </div>
 
             <p className="text-muted-foreground">{product.description}</p>
 
-            {/* Features */}
-            {product.features && Array.isArray(product.features) && product.features.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="font-semibold">Features:</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  {product.features.map((feature: any, index: number) => (
-                    <li key={index} className="text-muted-foreground">
-                      {typeof feature === 'object' ? feature.text : feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Color Selection */}
             <div className="space-y-2">
               <Label>Color</Label>
               <Select value={selectedColor} onValueChange={setSelectedColor}>
@@ -177,7 +148,6 @@ export default function ProductDetail() {
               </Select>
             </div>
 
-            {/* Size Selection */}
             <div className="space-y-2">
               <Label>Size</Label>
               <Select value={selectedSize} onValueChange={setSelectedSize}>
@@ -194,7 +164,6 @@ export default function ProductDetail() {
               </Select>
             </div>
 
-            {/* Quantity */}
             <div className="space-y-2">
               <Label>Quantity</Label>
               <div className="flex items-center gap-4">
@@ -205,40 +174,48 @@ export default function ProductDetail() {
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span className="text-xl font-semibold w-12 text-center">{quantity}</span>
+                <span className="text-xl font-semibold w-12 text-center">
+                  {quantity}
+                </span>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                  onClick={() =>
+                    setQuantity(Math.min(product.stock, quantity + 1))
+                  }
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">{product.stock} items in stock</p>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-4">
               <Button size="lg" className="flex-1" onClick={handleAddToCart}>
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Add to Cart
               </Button>
-              <Button size="lg" variant="secondary" className="flex-1" onClick={handleBuyNow}>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="flex-1"
+                onClick={handleBuyNow}
+              >
                 Buy Now
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Reviews Section */}
         <div className="mt-12">
           <Card>
             <CardContent className="p-6 space-y-6">
               <h2 className="text-2xl font-bold">Customer Reviews</h2>
               <ReviewsList productId={id!} refreshTrigger={reviewRefresh} />
-              <ReviewForm 
-                productId={id!} 
-                onReviewSubmitted={() => setReviewRefresh(prev => prev + 1)} 
+              <ReviewForm
+                productId={id!}
+                onReviewSubmitted={() =>
+                  setReviewRefresh((prev) => prev + 1)
+                }
               />
             </CardContent>
           </Card>

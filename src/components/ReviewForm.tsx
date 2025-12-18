@@ -4,13 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Star } from "lucide-react";
+import { useAuth0 } from "@auth0/auth0-react";
 
 interface ReviewFormProps {
   productId: string;
   onReviewSubmitted: () => void;
 }
 
-export const ReviewForm = ({ productId, onReviewSubmitted }: ReviewFormProps) => {
+export const ReviewForm = ({
+  productId,
+  onReviewSubmitted,
+}: ReviewFormProps) => {
+  const { user, isAuthenticated, loginWithRedirect } = useAuth0();
+
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
@@ -18,29 +24,26 @@ export const ReviewForm = ({ productId, onReviewSubmitted }: ReviewFormProps) =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!isAuthenticated || !user) {
+      toast.error("Please login to submit a review");
+      loginWithRedirect();
+      return;
+    }
+
     if (rating === 0) {
       toast.error("Please select a rating");
       return;
     }
 
     setIsSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      toast.error("Please login to submit a review");
-      setIsSubmitting(false);
-      return;
-    }
 
-    const { error } = await supabase
-      .from("reviews")
-      .insert([{
-        user_id: user.id,
-        product_id: productId,
-        rating,
-        review_text: reviewText,
-      }]);
+    const { error } = await supabase.from("reviews").insert({
+      user_id: user.sub, // 🔥 AUTH0 USER ID
+      product_id: productId,
+      rating,
+      review_text: reviewText,
+    });
 
     if (error) {
       toast.error("Failed to submit review");
@@ -50,14 +53,14 @@ export const ReviewForm = ({ productId, onReviewSubmitted }: ReviewFormProps) =>
       setReviewText("");
       onReviewSubmitted();
     }
-    
+
     setIsSubmitting(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 border-t pt-6">
       <h3 className="text-xl font-semibold">Write a Review</h3>
-      
+
       <div className="space-y-2">
         <label className="text-sm font-medium">Rating</label>
         <div className="flex gap-2">

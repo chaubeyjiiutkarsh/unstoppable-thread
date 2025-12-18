@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useSyncUser } from "@/hooks/useSyncUser"; // 👈 NEW
 
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
@@ -20,6 +21,8 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => {
+  useSyncUser(); // 🔥 Auth0 user → Supabase public.users sync
+
   return (
     <Auth0Provider
       domain={import.meta.env.VITE_AUTH0_DOMAIN}

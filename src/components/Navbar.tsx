@@ -4,11 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Navbar = () => {
   const { user, isAuthenticated, loginWithRedirect, logout } = useAuth0();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // 🔹 STEP 9: Sync Auth0 user → Supabase users table
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      supabase.from("users").upsert({
+        id: user.sub,          // 🔑 Auth0 user id
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+      });
+    }
+  }, [isAuthenticated, user]);
 
   // 🔹 Close dropdown on outside click
   useEffect(() => {

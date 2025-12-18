@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useAuth0 } from "@auth0/auth0-react";
 
 export default function CustomDesign() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState({
     clothingType: "",
@@ -22,41 +24,39 @@ export default function CustomDesign() {
     budget: "",
   });
 
+  // 🔐 Auth0 guard
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session) {
-        navigate("/auth");
-      }
-    });
-  }, [navigate]);
+    if (!isLoading && !isAuthenticated) {
+      loginWithRedirect();
+    }
+  }, [isLoading, isAuthenticated, loginWithRedirect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       toast.error("Please login to submit custom design request");
       return;
     }
-    
-    setIsLoading(true);
+
+    setIsSubmitting(true);
 
     try {
       const { error } = await supabase
         .from("custom_design_requests")
-        .insert([{
-          user_id: user.id,
+        .insert({
+          user_id: user.sub, // 🔥 AUTH0 USER ID
           description,
           requirements,
           status: "pending",
-        } as any]);
+        });
 
-      if (error) {
-        console.error("Design request error:", error);
-        throw new Error("Failed to submit design request");
-      }
+      if (error) throw error;
 
-      toast.success("Design request submitted successfully! Our designer will contact you soon at your registered phone number.");
+      toast.success(
+        "Design request submitted successfully! Our designer will contact you soon."
+      );
+
       setDescription("");
       setRequirements({
         clothingType: "",
@@ -65,32 +65,37 @@ export default function CustomDesign() {
         specialFeatures: "",
         budget: "",
       });
+
+      navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Failed to submit request");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold mb-4">Custom Design Request</h1>
+          <h1 className="text-3xl font-bold mb-4">
+            Custom Design Request
+          </h1>
           <p className="text-muted-foreground mb-8">
-            Tell us about your specific needs and we'll create a custom design just for you. Our designer will contact you at your registered phone number to discuss details.
+            Tell us about your specific needs and we'll create a custom design
+            just for you.
           </p>
 
           <Card>
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="description">Design Description *</Label>
+                  <Label>Design Description *</Label>
                   <Textarea
-                    id="description"
-                    placeholder="Describe what you're looking for..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     required
@@ -99,61 +104,81 @@ export default function CustomDesign() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="clothingType">Clothing Type *</Label>
+                  <Label>Clothing Type *</Label>
                   <Input
-                    id="clothingType"
-                    placeholder="e.g., T-shirt, Pants, Jacket"
                     value={requirements.clothingType}
-                    onChange={(e) => setRequirements({...requirements, clothingType: e.target.value})}
+                    onChange={(e) =>
+                      setRequirements({
+                        ...requirements,
+                        clothingType: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="preferredColors">Preferred Colors</Label>
+                    <Label>Preferred Colors</Label>
                     <Input
-                      id="preferredColors"
-                      placeholder="e.g., Blue, Black"
                       value={requirements.preferredColors}
-                      onChange={(e) => setRequirements({...requirements, preferredColors: e.target.value})}
+                      onChange={(e) =>
+                        setRequirements({
+                          ...requirements,
+                          preferredColors: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="size">Size *</Label>
+                    <Label>Size *</Label>
                     <Input
-                      id="size"
-                      placeholder="e.g., L, XL"
                       value={requirements.size}
-                      onChange={(e) => setRequirements({...requirements, size: e.target.value})}
+                      onChange={(e) =>
+                        setRequirements({
+                          ...requirements,
+                          size: e.target.value,
+                        })
+                      }
                       required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="specialFeatures">Special Features / Requirements</Label>
+                  <Label>Special Features</Label>
                   <Textarea
-                    id="specialFeatures"
-                    placeholder="Any specific accessibility features needed?"
                     value={requirements.specialFeatures}
-                    onChange={(e) => setRequirements({...requirements, specialFeatures: e.target.value})}
+                    onChange={(e) =>
+                      setRequirements({
+                        ...requirements,
+                        specialFeatures: e.target.value,
+                      })
+                    }
                     rows={3}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="budget">Budget Range (₹)</Label>
+                  <Label>Budget Range (₹)</Label>
                   <Input
-                    id="budget"
-                    placeholder="e.g., 2000-5000"
                     value={requirements.budget}
-                    onChange={(e) => setRequirements({...requirements, budget: e.target.value})}
+                    onChange={(e) =>
+                      setRequirements({
+                        ...requirements,
+                        budget: e.target.value,
+                      })
+                    }
                   />
                 </div>
 
-                <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Submitting..." : "Submit Request"}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Submitting..." : "Submit Request"}
                 </Button>
               </form>
             </CardContent>
