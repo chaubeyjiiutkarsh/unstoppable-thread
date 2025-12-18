@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Star } from "lucide-react";
-import { useAuth0 } from "@auth0/auth0-react";
 
 interface ReviewFormProps {
   productId: string;
@@ -15,19 +14,35 @@ export const ReviewForm = ({
   productId,
   onReviewSubmitted,
 }: ReviewFormProps) => {
-  const { user, isAuthenticated, loginWithRedirect } = useAuth0();
+  const [user, setUser] = useState<any>(null);
 
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🔐 Get Supabase user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isAuthenticated || !user) {
+    if (!user) {
       toast.error("Please login to submit a review");
-      loginWithRedirect();
       return;
     }
 
@@ -39,13 +54,14 @@ export const ReviewForm = ({
     setIsSubmitting(true);
 
     const { error } = await supabase.from("reviews").insert({
-      user_id: user.sub, // 🔥 AUTH0 USER ID
+      user_id: user.id, // ✅ SUPABASE USER ID
       product_id: productId,
       rating,
       review_text: reviewText,
     });
 
     if (error) {
+      console.error(error);
       toast.error("Failed to submit review");
     } else {
       toast.success("Review submitted successfully!");
@@ -61,6 +77,7 @@ export const ReviewForm = ({
     <form onSubmit={handleSubmit} className="space-y-4 border-t pt-6">
       <h3 className="text-xl font-semibold">Write a Review</h3>
 
+      {/* Rating */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Rating</label>
         <div className="flex gap-2">
@@ -85,6 +102,7 @@ export const ReviewForm = ({
         </div>
       </div>
 
+      {/* Review text */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Your Review</label>
         <Textarea

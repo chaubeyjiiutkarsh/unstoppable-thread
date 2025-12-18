@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useAuth0 } from "@auth0/auth0-react";
 
 export default function CustomDesign() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
 
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState({
     clothingType: "",
@@ -24,17 +25,22 @@ export default function CustomDesign() {
     budget: "",
   });
 
-  // 🔐 Auth0 guard
+  // 🔐 Supabase Auth guard
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      loginWithRedirect();
-    }
-  }, [isLoading, isAuthenticated, loginWithRedirect]);
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        navigate("/auth"); // 🔁 login page
+      } else {
+        setUser(data.user);
+      }
+      setLoading(false);
+    });
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user) {
+    if (!user?.id) {
       toast.error("Please login to submit custom design request");
       return;
     }
@@ -45,7 +51,7 @@ export default function CustomDesign() {
       const { error } = await supabase
         .from("custom_design_requests")
         .insert({
-          user_id: user.sub, // 🔥 AUTH0 USER ID
+          user_id: user.id, // ✅ SUPABASE USER ID
           description,
           requirements,
           status: "pending",
@@ -74,7 +80,7 @@ export default function CustomDesign() {
     }
   };
 
-  if (isLoading) return null;
+  if (loading) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -130,6 +136,7 @@ export default function CustomDesign() {
                       }
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label>Size *</Label>
                     <Input

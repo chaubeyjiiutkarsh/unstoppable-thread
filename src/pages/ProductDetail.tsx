@@ -16,17 +16,16 @@ import { Label } from "@/components/ui/label";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { ReviewForm } from "@/components/ReviewForm";
 import { ReviewsList } from "@/components/ReviewsList";
-import { useAuth0 } from "@auth0/auth0-react";
 
 interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
-  image_url: string;
+  image_url: string | null;
   category: string;
-  colors: string[];
-  sizes: string[];
+  colors: string[] | null;
+  sizes: string[] | null;
   features: any;
   stock: number;
 }
@@ -34,13 +33,20 @@ interface Product {
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated, loginWithRedirect } = useAuth0();
 
+  const [user, setUser] = useState<any>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [reviewRefresh, setReviewRefresh] = useState(0);
+
+  // 🔐 Supabase auth
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     if (id) fetchProduct();
@@ -53,17 +59,20 @@ export default function ProductDetail() {
       .eq("id", id)
       .single();
 
-    if (!error && data) {
-      setProduct(data);
-      setSelectedColor(data.colors?.[0] || "");
-      setSelectedSize(data.sizes?.[0] || "");
+    if (error) {
+      toast.error("Failed to load product");
+      return;
     }
+
+    setProduct(data);
+    setSelectedColor(data.colors?.[0] || "");
+    setSelectedSize(data.sizes?.[0] || "");
   };
 
   const handleAddToCart = async () => {
-    if (!isAuthenticated || !user) {
+    if (!user?.id) {
       toast.error("Please login to add items to cart");
-      loginWithRedirect();
+      navigate("/auth");
       return;
     }
 
@@ -72,9 +81,11 @@ export default function ProductDetail() {
       return;
     }
 
+    // 🔎 check existing cart item for THIS USER
     const { data: existingItem } = await supabase
       .from("cart_items")
       .select("*")
+      .eq("user_id", user.id)
       .eq("product_id", id)
       .eq("color", selectedColor)
       .eq("size", selectedSize)
@@ -83,11 +94,13 @@ export default function ProductDetail() {
     if (existingItem) {
       await supabase
         .from("cart_items")
-        .update({ quantity: existingItem.quantity + quantity })
+        .update({
+          quantity: existingItem.quantity + quantity,
+        })
         .eq("id", existingItem.id);
     } else {
       await supabase.from("cart_items").insert({
-        user_id: user.sub, // 🔥 Auth0 user id
+        user_id: user.id, // ✅ SUPABASE USER ID
         product_id: id,
         quantity,
         color: selectedColor,
@@ -103,7 +116,7 @@ export default function ProductDetail() {
     navigate("/cart");
   };
 
-  if (!product) return <div>Loading...</div>;
+  if (!product) return <div className="p-8">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -174,9 +187,11 @@ export default function ProductDetail() {
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
+
                 <span className="text-xl font-semibold w-12 text-center">
                   {quantity}
                 </span>
+
                 <Button
                   variant="outline"
                   size="icon"
@@ -194,6 +209,7 @@ export default function ProductDetail() {
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Add to Cart
               </Button>
+
               <Button
                 size="lg"
                 variant="secondary"
@@ -206,11 +222,17 @@ export default function ProductDetail() {
           </div>
         </div>
 
+        {/* Reviews */}
         <div className="mt-12">
           <Card>
             <CardContent className="p-6 space-y-6">
               <h2 className="text-2xl font-bold">Customer Reviews</h2>
-              <ReviewsList productId={id!} refreshTrigger={reviewRefresh} />
+
+              <ReviewsList
+                productId={id!}
+                refreshTrigger={reviewRefresh}
+              />
+
               <ReviewForm
                 productId={id!}
                 onReviewSubmitted={() =>

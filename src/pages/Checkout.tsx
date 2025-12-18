@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,23 +24,26 @@ export default function Checkout() {
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
 
-  // 🔐 Auth0 guard
+  // 🔐 Supabase Auth Guard
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      loginWithRedirect();
-    }
-  }, [isLoading, isAuthenticated, loginWithRedirect]);
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        navigate("/auth");
+      } else {
+        setUser(data.user);
+      }
+      setLoading(false);
+    });
+  }, [navigate]);
 
-  // 🔥 fetch cart for THIS USER ONLY
+  // 🔥 Fetch cart for logged-in user
   useEffect(() => {
-    if (isAuthenticated && user?.sub) {
+    if (user) {
       fetchCartItems();
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [user]);
 
   const fetchCartItems = async () => {
-    if (!user?.sub) return;
-
     const { data, error } = await supabase
       .from("cart_items")
       .select(
@@ -52,15 +56,15 @@ export default function Checkout() {
         )
       `
       )
-      .eq("user_id", user.sub); // ✅ FIX
+      .eq("user_id", user.id); // ✅ Supabase user.id
 
     if (error) {
-      console.error("Checkout cart error:", error);
+      console.error(error);
       toast.error("Failed to load cart");
       return;
     }
 
-    setCartItems(data);
+    setCartItems(data || []);
   };
 
   const totalAmount = cartItems.reduce(
@@ -71,7 +75,7 @@ export default function Checkout() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user?.sub) {
+    if (!user) {
       toast.error("Please login first");
       return;
     }
@@ -88,7 +92,7 @@ export default function Checkout() {
       const { data: address, error: addressError } = await supabase
         .from("addresses")
         .insert({
-          user_id: user.sub,
+          user_id: user.id,
           full_name: fullName,
           phone,
           address_line1: addressLine1,
@@ -107,7 +111,7 @@ export default function Checkout() {
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
-          user_id: user.sub,
+          user_id: user.id,
           address_id: address.id,
           total_amount: totalAmount,
           status: "pending",
@@ -129,11 +133,8 @@ export default function Checkout() {
 
       await supabase.from("order_items").insert(orderItems);
 
-      // 4️⃣ Clear cart (ONLY THIS USER)
-      await supabase
-        .from("cart_items")
-        .delete()
-        .eq("user_id", user.sub);
+      // 4️⃣ Clear cart
+      await supabase.from("cart_items").delete().eq("user_id", user.id);
 
       toast.success("Order placed successfully!");
       navigate("/");
@@ -145,7 +146,7 @@ export default function Checkout() {
     }
   };
 
-  if (isLoading) return null;
+  if (loading) return null;
 
   return (
     <div className="min-h-screen bg-background">

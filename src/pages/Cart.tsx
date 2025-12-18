@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { useAuth0 } from "@auth0/auth0-react";
 
 interface CartItem {
   id: string;
@@ -23,27 +22,31 @@ interface CartItem {
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, loginWithRedirect, user } = useAuth0();
 
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // 🔐 Auth0 guard
+  // 🔐 Supabase Auth guard
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      loginWithRedirect();
-    }
-  }, [isLoading, isAuthenticated, loginWithRedirect]);
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        navigate("/auth"); // 🔁 login page
+      } else {
+        setUser(data.user);
+      }
+      setLoading(false);
+    });
+  }, [navigate]);
 
-  // 🔥 FETCH CART FOR LOGGED IN USER
+  // 🔥 Fetch cart for logged-in user
   useEffect(() => {
-    if (isAuthenticated && user?.sub) {
+    if (user?.id) {
       fetchCartItems();
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [user?.id]);
 
   const fetchCartItems = async () => {
-    if (!user?.sub) return;
-
     const { data, error } = await supabase
       .from("cart_items")
       .select(
@@ -56,7 +59,7 @@ export default function Cart() {
         )
       `
       )
-      .eq("user_id", user.sub); // ✅ MOST IMPORTANT FIX
+      .eq("user_id", user.id); // ✅ SUPABASE USER ID
 
     if (error) {
       console.error("Cart fetch error:", error);
@@ -74,11 +77,9 @@ export default function Cart() {
       .from("cart_items")
       .update({ quantity: newQuantity })
       .eq("id", itemId)
-      .eq("user_id", user?.sub); // 🔒 safety
+      .eq("user_id", user.id);
 
-    if (!error) {
-      fetchCartItems();
-    }
+    if (!error) fetchCartItems();
   };
 
   const removeItem = async (itemId: string) => {
@@ -86,7 +87,7 @@ export default function Cart() {
       .from("cart_items")
       .delete()
       .eq("id", itemId)
-      .eq("user_id", user?.sub); // 🔒 safety
+      .eq("user_id", user.id);
 
     if (!error) {
       toast.success("Item removed from cart");
@@ -107,7 +108,7 @@ export default function Cart() {
     navigate("/checkout");
   };
 
-  if (isLoading) return null;
+  if (loading) return null;
 
   return (
     <div className="min-h-screen bg-background">

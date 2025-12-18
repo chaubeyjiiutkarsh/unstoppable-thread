@@ -1,11 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuth0 } from "@auth0/auth0-react";
 import { LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const ProfileMenu = () => {
-  const { user, isAuthenticated, logout } = useAuth0();
+  const [user, setUser] = useState<any>(null);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // 🔐 Get Supabase user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // 🔹 Outside click close
   useEffect(() => {
@@ -18,24 +35,41 @@ const ProfileMenu = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  if (!isAuthenticated || !user) return null;
+  if (!user) return null;
+
+  const name =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    "User";
+
+  const email = user.email || "";
+
+  const picture =
+    user.user_metadata?.avatar_url ||
+    user.user_metadata?.picture ||
+    null;
 
   const initials =
-    user.name
+    name
       ?.split(" ")
-      .map((n) => n[0])
+      .map((n: string) => n[0])
       .join("")
       .slice(0, 2)
       .toUpperCase() ||
-    user.email?.[0]?.toUpperCase() ||
+    email?.[0]?.toUpperCase() ||
     "U";
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
 
   return (
     <div className="relative" ref={menuRef}>
       {/* Avatar */}
-      {user.picture ? (
+      {picture ? (
         <img
-          src={user.picture}
+          src={picture}
           alt="profile"
           className="w-9 h-9 rounded-full cursor-pointer border"
           onClick={() => setOpen(!open)}
@@ -57,30 +91,22 @@ const ProfileMenu = () => {
       >
         {/* User info */}
         <div className="flex items-center gap-3 p-4 border-b">
-          {user.picture ? (
-            <img src={user.picture} className="w-10 h-10 rounded-full" />
+          {picture ? (
+            <img src={picture} className="w-10 h-10 rounded-full" />
           ) : (
             <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
               {initials}
             </div>
           )}
           <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">
-              {user.name || "User"}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {user.email}
-            </p>
+            <p className="font-semibold text-sm truncate">{name}</p>
+            <p className="text-xs text-muted-foreground truncate">{email}</p>
           </div>
         </div>
 
         {/* Logout */}
         <button
-          onClick={() =>
-            logout({
-              logoutParams: { returnTo: window.location.origin },
-            })
-          }
+          onClick={handleLogout}
           className="flex items-center gap-2 w-full px-4 py-3 text-sm hover:bg-gray-100 rounded-b-xl"
         >
           <LogOut size={16} />

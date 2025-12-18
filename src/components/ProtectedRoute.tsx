@@ -1,12 +1,23 @@
 import { Navigate } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const { isAuthenticated, isLoading } = useAuth0();
+export default function ProtectedRoute({ children }: { children: JSX.Element }) {
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
 
-  if (isLoading) return null;
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setLoading(false);
+    });
+  }, []);
 
-  return isAuthenticated ? children : <Navigate to="/auth" replace />;
-};
+  if (loading) return null;
 
-export default ProtectedRoute;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return children;
+}
