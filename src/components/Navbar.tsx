@@ -1,48 +1,14 @@
 import { Link } from "react-router-dom";
-import { ShoppingCart, User, Search, Home } from "lucide-react";
+import { ShoppingCart, User, Search, Home, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { User as SupabaseUser } from "@supabase/supabase-js";
+import { useAuth0 } from "@auth0/auth0-react";
 
 export const Navbar = () => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [cartCount, setCartCount] = useState(0);
+  const { user, isAuthenticated, logout } = useAuth0();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      fetchCartCount();
-    } else {
-      setCartCount(0);
-    }
-  }, [user]);
-
-  const fetchCartCount = async () => {
-    const { data, error } = await supabase
-      .from("cart_items")
-      .select("quantity");
-    
-    if (!error && data) {
-      const total = data.reduce((sum, item) => sum + item.quantity, 0);
-      setCartCount(total);
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    logout({ logoutParams: { returnTo: window.location.origin } });
   };
 
   return (
@@ -79,20 +45,20 @@ export const Navbar = () => {
               <Button variant="ghost">Size Guide</Button>
             </Link>
             
-            {user ? (
+            {isAuthenticated ? (
               <>
                 <Link to="/cart">
                   <Button variant="ghost" size="icon" className="relative">
                     <ShoppingCart className="h-5 w-5" />
-                    {cartCount > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                        {cartCount}
-                      </span>
-                    )}
                   </Button>
                 </Link>
-                <Button variant="ghost" size="icon" onClick={handleLogout}>
-                  <User className="h-5 w-5" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleLogout}
+                  title={`Logout (${user?.email || user?.name})`}
+                >
+                  <LogOut className="h-5 w-5" />
                 </Button>
               </>
             ) : (
