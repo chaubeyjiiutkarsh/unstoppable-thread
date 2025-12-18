@@ -23,7 +23,7 @@ interface CartItem {
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect, user } = useAuth0();
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
@@ -34,27 +34,37 @@ export default function Cart() {
     }
   }, [isLoading, isAuthenticated, loginWithRedirect]);
 
+  // 🔥 FETCH CART FOR LOGGED IN USER
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user?.sub) {
       fetchCartItems();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.sub]);
 
   const fetchCartItems = async () => {
+    if (!user?.sub) return;
+
     const { data, error } = await supabase
       .from("cart_items")
-      .select(`
+      .select(
+        `
         *,
         products (
           name,
           price,
           image_url
         )
-      `);
+      `
+      )
+      .eq("user_id", user.sub); // ✅ MOST IMPORTANT FIX
 
-    if (!error && data) {
-      setCartItems(data as CartItem[]);
+    if (error) {
+      console.error("Cart fetch error:", error);
+      toast.error("Failed to load cart");
+      return;
     }
+
+    setCartItems(data as CartItem[]);
   };
 
   const updateQuantity = async (itemId: string, newQuantity: number) => {
@@ -63,7 +73,8 @@ export default function Cart() {
     const { error } = await supabase
       .from("cart_items")
       .update({ quantity: newQuantity })
-      .eq("id", itemId);
+      .eq("id", itemId)
+      .eq("user_id", user?.sub); // 🔒 safety
 
     if (!error) {
       fetchCartItems();
@@ -74,7 +85,8 @@ export default function Cart() {
     const { error } = await supabase
       .from("cart_items")
       .delete()
-      .eq("id", itemId);
+      .eq("id", itemId)
+      .eq("user_id", user?.sub); // 🔒 safety
 
     if (!error) {
       toast.success("Item removed from cart");

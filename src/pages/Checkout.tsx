@@ -5,7 +5,6 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -31,27 +30,37 @@ export default function Checkout() {
     }
   }, [isLoading, isAuthenticated, loginWithRedirect]);
 
+  // 🔥 fetch cart for THIS USER ONLY
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user?.sub) {
       fetchCartItems();
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.sub]);
 
   const fetchCartItems = async () => {
+    if (!user?.sub) return;
+
     const { data, error } = await supabase
       .from("cart_items")
-      .select(`
+      .select(
+        `
         *,
         products (
           name,
           price,
           image_url
         )
-      `);
+      `
+      )
+      .eq("user_id", user.sub); // ✅ FIX
 
-    if (!error && data) {
-      setCartItems(data);
+    if (error) {
+      console.error("Checkout cart error:", error);
+      toast.error("Failed to load cart");
+      return;
     }
+
+    setCartItems(data);
   };
 
   const totalAmount = cartItems.reduce(
@@ -62,19 +71,24 @@ export default function Checkout() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user) {
+    if (!user?.sub) {
       toast.error("Please login first");
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      toast.error("Your cart is empty");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 🔹 Save address
-      const { data: addressData, error: addressError } = await supabase
+      // 1️⃣ Save address
+      const { data: address, error: addressError } = await supabase
         .from("addresses")
         .insert({
-          user_id: user.sub, // 🔥 AUTH0 USER ID
+          user_id: user.sub,
           full_name: fullName,
           phone,
           address_line1: addressLine1,
@@ -89,12 +103,12 @@ export default function Checkout() {
 
       if (addressError) throw addressError;
 
-      // 🔹 Create order
-      const { data: orderData, error: orderError } = await supabase
+      // 2️⃣ Create order
+      const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
-          user_id: user.sub, // 🔥 AUTH0 USER ID
-          address_id: addressData.id,
+          user_id: user.sub,
+          address_id: address.id,
           total_amount: totalAmount,
           status: "pending",
         })
@@ -103,9 +117,9 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
-      // 🔹 Order items
+      // 3️⃣ Order items
       const orderItems = cartItems.map((item) => ({
-        order_id: orderData.id,
+        order_id: order.id,
         product_id: item.product_id,
         quantity: item.quantity,
         price: item.products.price,
@@ -115,15 +129,16 @@ export default function Checkout() {
 
       await supabase.from("order_items").insert(orderItems);
 
-      // 🔹 Clear cart
+      // 4️⃣ Clear cart (ONLY THIS USER)
       await supabase
         .from("cart_items")
         .delete()
-        .in("id", cartItems.map((i) => i.id));
+        .eq("user_id", user.sub);
 
       toast.success("Order placed successfully!");
       navigate("/");
     } catch (err: any) {
+      console.error(err);
       toast.error(err.message || "Failed to place order");
     } finally {
       setIsSubmitting(false);
@@ -144,6 +159,7 @@ export default function Checkout() {
             <Card>
               <CardContent className="p-6">
                 <h2 className="text-xl font-bold mb-6">Delivery Address</h2>
+
                 <form onSubmit={handlePlaceOrder} className="space-y-4">
                   <Input placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                   <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
@@ -163,15 +179,19 @@ export default function Checkout() {
 
           <div>
             <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+              <CardContent className="p-6 space-y-2">
+                <h2 className="text-xl font-bold mb-2">Order Summary</h2>
+
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
                     <span>{item.products.name} × {item.quantity}</span>
-                    <span>₹{(item.products.price * item.quantity).toLocaleString("en-IN")}</span>
+                    <span>
+                      ₹{(item.products.price * item.quantity).toLocaleString("en-IN")}
+                    </span>
                   </div>
                 ))}
-                <div className="border-t mt-4 pt-4 flex justify-between font-bold">
+
+                <div className="border-t pt-4 flex justify-between font-bold">
                   <span>Total</span>
                   <span>₹{totalAmount.toLocaleString("en-IN")}</span>
                 </div>
