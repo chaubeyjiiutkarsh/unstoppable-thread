@@ -5,9 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
-import AdminRoute from "@/components/AdminRoute"; // ✅ ADD
-import AdminDashboard from "./pages/admin/AdminDashboard"; // ✅ ADD
+import AdminRoute from "@/components/AdminRoute";
 
+// 🌍 Public / User Pages
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import ProductDetail from "./pages/ProductDetail";
@@ -17,6 +17,11 @@ import CustomDesign from "./pages/CustomDesign";
 import SeedLookup from "./pages/SeedLookup";
 import SizeGuide from "./pages/SizeGuide";
 import Orders from "./pages/Orders";
+
+// 🛡️ Admin Pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminOrders from "./pages/admin/AdminOrders";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,7 +35,7 @@ const App = () => {
 
         <BrowserRouter>
           <Routes>
-            {/* 🌍 Public routes */}
+            {/* 🌍 Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/product/:id" element={<ProductDetail />} />
@@ -38,7 +43,7 @@ const App = () => {
             <Route path="/seed-lookup" element={<SeedLookup />} />
             <Route path="/size-guide" element={<SizeGuide />} />
 
-            {/* 🔐 User protected routes */}
+            {/* 🔐 User Protected Routes */}
             <Route
               path="/cart"
               element={
@@ -57,6 +62,7 @@ const App = () => {
               }
             />
 
+            {/* 👤 User Orders (ONLY own orders) */}
             <Route
               path="/orders"
               element={
@@ -66,12 +72,21 @@ const App = () => {
               }
             />
 
-            {/* 🛡️ ADMIN ROUTE */}
+            {/* 🛡️ Admin Routes */}
             <Route
               path="/admin"
               element={
                 <AdminRoute>
                   <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+
+            <Route
+              path="/admin/orders"
+              element={
+                <AdminRoute>
+                  <AdminOrders />
                 </AdminRoute>
               }
             />

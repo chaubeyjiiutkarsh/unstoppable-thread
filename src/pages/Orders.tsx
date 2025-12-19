@@ -35,6 +35,12 @@ export default function Orders() {
   }, []);
 
   const fetchOrders = async () => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      toast.error("Please login");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("orders")
       .select(`
@@ -57,6 +63,7 @@ export default function Orders() {
           )
         )
       `)
+      .eq("user_id", auth.user.id) // ✅ 🔥 MOST IMPORTANT FIX
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -94,7 +101,7 @@ export default function Orders() {
             {orders.map((order) => (
               <Card key={order.id}>
                 <CardContent className="p-6 space-y-4">
-                  {/* Order Header */}
+                  {/* Header */}
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="font-semibold">
@@ -105,20 +112,18 @@ export default function Orders() {
                       </p>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full text-sm bg-muted">
+                    <span className="px-3 py-1 rounded-full text-sm bg-muted capitalize">
                       {order.status}
                     </span>
                   </div>
 
                   {/* Address */}
-                  <div className="text-sm text-muted-foreground">
-                    <p>
-                      {order.addresses.full_name},{" "}
-                      {order.addresses.city},{" "}
-                      {order.addresses.state} –{" "}
-                      {order.addresses.postal_code}
-                    </p>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {order.addresses.full_name},{" "}
+                    {order.addresses.city},{" "}
+                    {order.addresses.state} –{" "}
+                    {order.addresses.postal_code}
+                  </p>
 
                   {/* Items */}
                   <div className="space-y-3">
@@ -140,10 +145,7 @@ export default function Orders() {
                         </div>
 
                         <span>
-                          ₹
-                          {(item.price * item.quantity).toLocaleString(
-                            "en-IN"
-                          )}
+                          ₹{(item.price * item.quantity).toLocaleString("en-IN")}
                         </span>
                       </div>
                     ))}
