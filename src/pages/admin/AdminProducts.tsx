@@ -5,8 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
-import AdminRoute from "@/components/AdminRoute"; // ✅ ADD
-import AdminDashboard from "./pages/admin/AdminDashboard"; // ✅ ADD
+import AdminRoute from "@/components/AdminRoute"; // ✅ NEW
 
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
@@ -17,6 +16,7 @@ import CustomDesign from "./pages/CustomDesign";
 import SeedLookup from "./pages/SeedLookup";
 import SizeGuide from "./pages/SizeGuide";
 import Orders from "./pages/Orders";
+import AdminDashboard from "./pages/admin/Dashboard"; // ✅ NEW
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,7 +66,7 @@ const App = () => {
               }
             />
 
-            {/* 🛡️ ADMIN ROUTE */}
+            {/* 🛡️ Admin routes */}
             <Route
               path="/admin"
               element={

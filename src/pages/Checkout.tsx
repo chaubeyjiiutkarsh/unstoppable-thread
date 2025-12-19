@@ -24,7 +24,7 @@ export default function Checkout() {
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
 
-  // 🔐 Supabase Auth Guard
+  /* 🔐 Auth Guard */
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) {
@@ -36,11 +36,9 @@ export default function Checkout() {
     });
   }, [navigate]);
 
-  // 🔥 Fetch cart for logged-in user
+  /* 🛒 Fetch cart for logged-in user */
   useEffect(() => {
-    if (user) {
-      fetchCartItems();
-    }
+    if (user) fetchCartItems();
   }, [user]);
 
   const fetchCartItems = async () => {
@@ -56,7 +54,7 @@ export default function Checkout() {
         )
       `
       )
-      .eq("user_id", user.id); // ✅ Supabase user.id
+      .eq("user_id", user.id);
 
     if (error) {
       console.error(error);
@@ -72,6 +70,7 @@ export default function Checkout() {
     0
   );
 
+  /* 🧾 PLACE ORDER */
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -88,7 +87,7 @@ export default function Checkout() {
     setIsSubmitting(true);
 
     try {
-      // 1️⃣ Save address
+      // 1️⃣ Address
       const { data: address, error: addressError } = await supabase
         .from("addresses")
         .insert({
@@ -107,7 +106,7 @@ export default function Checkout() {
 
       if (addressError) throw addressError;
 
-      // 2️⃣ Create order
+      // 2️⃣ Order
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -121,7 +120,7 @@ export default function Checkout() {
 
       if (orderError) throw orderError;
 
-      // 3️⃣ Order items
+      // 3️⃣ Order Items
       const orderItems = cartItems.map((item) => ({
         order_id: order.id,
         product_id: item.product_id,
@@ -131,15 +130,19 @@ export default function Checkout() {
         size: item.size,
       }));
 
-      await supabase.from("order_items").insert(orderItems);
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
 
       // 4️⃣ Clear cart
       await supabase.from("cart_items").delete().eq("user_id", user.id);
 
-      toast.success("Order placed successfully!");
-      navigate("/");
+      toast.success("Order placed successfully 🎉");
+      navigate("/orders");
     } catch (err: any) {
-      console.error(err);
+      console.error("ORDER ERROR:", err);
       toast.error(err.message || "Failed to place order");
     } finally {
       setIsSubmitting(false);
@@ -156,6 +159,7 @@ export default function Checkout() {
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
         <div className="grid md:grid-cols-3 gap-8">
+          {/* Address */}
           <div className="md:col-span-2">
             <Card>
               <CardContent className="p-6">
@@ -178,6 +182,7 @@ export default function Checkout() {
             </Card>
           </div>
 
+          {/* Summary */}
           <div>
             <Card>
               <CardContent className="p-6 space-y-2">
@@ -185,7 +190,9 @@ export default function Checkout() {
 
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
-                    <span>{item.products.name} × {item.quantity}</span>
+                    <span>
+                      {item.products.name} × {item.quantity}
+                    </span>
                     <span>
                       ₹{(item.products.price * item.quantity).toLocaleString("en-IN")}
                     </span>

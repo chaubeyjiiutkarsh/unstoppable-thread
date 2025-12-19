@@ -1,5 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Search, Home, LogOut, Package } from "lucide-react";
+import {
+  ShoppingCart,
+  Search,
+  Home,
+  LogOut,
+  Package,
+  Shield,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
@@ -7,11 +14,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Navbar = () => {
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // 🔐 Get logged-in Supabase user
+  /* 🔐 Get logged-in Supabase user */
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user ?? null);
@@ -26,24 +34,46 @@ export const Navbar = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 🔄 Sync user → profiles table
+  /* 🔄 Sync user → profiles table */
   useEffect(() => {
     if (!user) return;
 
-    (async () => {
-      await supabase.from("profiles").upsert({
-        id: user.id,
-        email: user.email,
-        name:
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email,
-        avatar_url: user.user_metadata?.avatar_url || null,
-      });
-    })();
+    supabase.from("profiles").upsert({
+      id: user.id,
+      email: user.email,
+      full_name:
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email,
+      avatar_url: user.user_metadata?.avatar_url || null,
+    });
   }, [user]);
 
-  // ❌ Close dropdown on outside click
+  /* 🛡️ Check admin role */
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const checkAdmin = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data?.is_admin) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
+  }, [user]);
+
+  /* ❌ Close dropdown on outside click */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -54,14 +84,20 @@ export const Navbar = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // 🔤 Initials fallback
+  /* 🔤 Initials fallback */
   const getInitials = (name?: string, email?: string) => {
-    if (name) return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+    if (name)
+      return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
     if (email) return email[0].toUpperCase();
     return "U";
   };
 
-  // 🔐 Google Login
+  /* 🔐 Login */
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -69,7 +105,7 @@ export const Navbar = () => {
     });
   };
 
-  // 🔓 Logout
+  /* 🔓 Logout */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setOpen(false);
@@ -93,7 +129,7 @@ export const Navbar = () => {
             </div>
           </div>
 
-          {/* Right Section */}
+          {/* Right section */}
           <div className="flex items-center gap-4">
             <Link to="/">
               <Button variant="ghost" size="icon">
@@ -121,7 +157,7 @@ export const Navbar = () => {
                   </Button>
                 </Link>
 
-                {/* Profile */}
+                {/* Profile dropdown */}
                 <div className="relative" ref={menuRef}>
                   <div
                     onClick={() => setOpen(!open)}
@@ -170,6 +206,18 @@ export const Navbar = () => {
                           </p>
                         </div>
                       </div>
+
+                      {/* 🔥 Admin Dashboard */}
+                      {isAdmin && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setOpen(false)}
+                          className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-gray-100"
+                        >
+                          <Shield size={16} />
+                          Admin Dashboard
+                        </Link>
+                      )}
 
                       {/* Orders */}
                       <Link
